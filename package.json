@@ -1,5 +1,5 @@
 {
-  "name": "cleanstart",
+  "name": "@devjoemedia/cleanstart",
   "version": "0.1.0",
   "description": "Add a clean, CMS-ready structure to a Next.js or TanStack Start app: #/ alias, typed content and data seams, query hooks, SEO helper, CLAUDE.md and more.",
   "type": "module",
@@ -24,5 +24,8 @@
     "tailwind"
   ],
   "author": "Joseph Nartey",
-  "license": "MIT"
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  }
 }

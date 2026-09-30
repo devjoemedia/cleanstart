@@ -16,7 +16,7 @@ const help = `
   Adds a clean, CMS-ready project structure to a Next.js or TanStack Start app.
 
   Usage
-    npx cleanstart [options]        run inside the project folder
+    npx @devjoemedia/cleanstart [options]   run inside the project folder
 
   Options
     --framework <next|tanstack>     skip detection

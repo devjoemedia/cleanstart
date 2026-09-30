@@ -1,9 +1,9 @@
-# cleanstart
+# @devjoemedia/cleanstart
 
 Add a clean, CMS-ready structure to a new **Next.js** or **TanStack Start** app with one command.
 
 ```bash
-npx cleanstart
+npx @devjoemedia/cleanstart
 ```
 
 Run it inside a freshly created project. It detects the framework and package manager, writes the files into the right folders, updates your config and installs what's needed.
@@ -46,11 +46,11 @@ The menu example is one full vertical slice: **type → data → query hook → 
 ```bash
 # Next.js
 npx create-next-app@latest my-app --ts --tailwind --eslint --app --src-dir
-cd my-app && npx cleanstart
+cd my-app && npx @devjoemedia/cleanstart
 
 # TanStack Start
 npx @tanstack/cli@latest create my-app --add-ons tanstack-query --toolchain eslint
-cd my-app && npx cleanstart
+cd my-app && npx @devjoemedia/cleanstart
 ```
 
 ## Options
