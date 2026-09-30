@@ -1,0 +1,28 @@
+{
+  "name": "cleanstart",
+  "version": "0.1.0",
+  "description": "Add a clean, CMS-ready structure to a Next.js or TanStack Start app: #/ alias, typed content and data seams, query hooks, SEO helper, CLAUDE.md and more.",
+  "type": "module",
+  "bin": {
+    "cleanstart": "bin/cleanstart.js"
+  },
+  "files": [
+    "bin",
+    "src",
+    "templates"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "keywords": [
+    "nextjs",
+    "tanstack-start",
+    "tanstack-query",
+    "scaffold",
+    "project-setup",
+    "claude-code",
+    "tailwind"
+  ],
+  "author": "Joseph Nartey",
+  "license": "MIT"
+}
