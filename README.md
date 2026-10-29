@@ -47,15 +47,29 @@ Pass `--example` to also add a menu example: one full vertical slice, **type →
 ```bash
 # Next.js
 npx create-next-app@latest my-app --ts --tailwind --eslint --app --src-dir
-cd my-app && npx @devjoemedia/cleanstart
+cd my-app && npx @devjoemedia/cleanstart --framework next
 
 # TanStack Start
 npx @tanstack/cli@latest create my-app --add-ons tanstack-query --toolchain eslint
-cd my-app && npx @devjoemedia/cleanstart
+cd my-app && npx @devjoemedia/cleanstart --framework tanstack
 
-# Expo
+# Expo (React Native)
 npx create-expo-app@latest my-app
-cd my-app && npx @devjoemedia/cleanstart
+cd my-app && npx @devjoemedia/cleanstart --framework expo
+```
+
+`--framework` is optional when the project has a single framework, because cleanstart detects it. Passing it makes the command explicit and skips the prompt when detection is unclear.
+
+Add `--example` to any of these to include the menu example slice:
+
+```bash
+npx @devjoemedia/cleanstart --framework expo --example
+```
+
+Preview first without writing anything:
+
+```bash
+npx @devjoemedia/cleanstart --framework next --dry-run
 ```
 
 ## Options
