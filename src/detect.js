@@ -1,28 +1,46 @@
 import fs from 'node:fs'
 import path from 'node:path'
 
-// Works out which framework, package manager and folder layout the target project uses.
-export function detectProject(cwd, forcedFramework) {
+// Every supported framework: the dependency that identifies it and whether it renders to the web or native.
+export const FRAMEWORKS = {
+  next: { label: 'Next.js', dep: 'next', platform: 'web' },
+  tanstack: { label: 'TanStack Start', dep: '@tanstack/react-start', platform: 'web' },
+  expo: { label: 'Expo (React Native)', dep: 'expo', platform: 'native' },
+}
+
+// Reads the target project and works out its framework (null if unknown) and package manager.
+export function readProject(cwd) {
   const pkgPath = path.join(cwd, 'package.json')
   if (!fs.existsSync(pkgPath)) {
-    throw new Error(`No package.json in ${cwd}. Run cleanstart inside a Next.js or TanStack Start project.`)
+    throw new Error(`No package.json in ${cwd}. Run cleanstart inside a Next.js, TanStack Start or Expo project.`)
   }
   const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'))
   const deps = { ...pkg.dependencies, ...pkg.devDependencies }
+  const detected = Object.keys(FRAMEWORKS).filter((key) => deps[FRAMEWORKS[key].dep])
+  return { pkg, deps, detected, pm: detectPackageManager(cwd), name: pkg.name ?? path.basename(cwd) }
+}
 
-  const framework = forcedFramework ?? (deps.next ? 'next' : deps['@tanstack/react-start'] ? 'tanstack' : null)
-  if (!framework) {
-    throw new Error('Could not find next or @tanstack/react-start in package.json. Pass --framework next|tanstack.')
+// Finds where source files and routes live for the chosen framework.
+export function resolveLayout(cwd, framework, deps) {
+  const has = (rel) => fs.existsSync(path.join(cwd, rel))
+
+  if (framework === 'tanstack') return { srcDir: 'src', appDir: null }
+
+  if (framework === 'next') {
+    const srcDir = has('src') ? 'src' : '.'
+    const appDir = path.join(srcDir, 'app')
+    if (!has(appDir)) throw new Error(`Expected a Next.js App Router folder at ${appDir}/. The Pages Router is not supported.`)
+    return { srcDir, appDir }
   }
 
-  // TanStack Start always uses src/; Next.js may or may not.
-  const srcDir = framework === 'tanstack' || fs.existsSync(path.join(cwd, 'src')) ? 'src' : '.'
-  const appDir = framework === 'next' ? path.join(srcDir, 'app') : null
-  if (appDir && !fs.existsSync(path.join(cwd, appDir))) {
-    throw new Error(`Expected a Next.js App Router folder at ${appDir}/. The Pages Router is not supported.`)
+  // Expo Router reads routes from src/app when it exists, otherwise from app/ at the root.
+  if (!deps['expo-router']) {
+    throw new Error('cleanstart needs Expo Router. Install it first: npx expo install expo-router')
   }
-
-  return { pkg, framework, srcDir, appDir, pm: detectPackageManager(cwd), name: pkg.name ?? path.basename(cwd) }
+  const srcDir = has('src/app') ? 'src' : '.'
+  const appDir = path.join(srcDir, 'app')
+  if (!has(appDir)) throw new Error(`Expected an Expo Router folder at ${appDir}/.`)
+  return { srcDir, appDir }
 }
 
 function detectPackageManager(cwd) {

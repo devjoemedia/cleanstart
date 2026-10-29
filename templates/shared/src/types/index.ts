@@ -1,37 +1,28 @@
-// Single source of truth for every shape in the app: data, content and SEO.
+// Single source of truth for every shape in the app: data and content{{#web}}, plus SEO{{/web}}.
 
-export interface Cta {
-  label: string
-  href: string
-}
-
-export type IconName = 'coffee' | 'gift' | 'utensils' | 'arrow-right' | 'alert'
-
-export interface Step {
-  id: string
-  order: number
-  title: string
-  icon: IconName
-}
-
-export interface HeroBlock {
-  title: string
-  body: string
-  cta: Cta
-}
-
-export interface HomeContent {
-  hero: HeroBlock
-  steps: Array<Step>
-}
+// Content names icons by key; components/common/icon.tsx maps each key to a glyph.
+export type IconName = 'arrow-right' | 'alert'
+{{#web}}
 
 export interface PageSeo {
   title: string
   description: string
 }
 
+export interface SeoInput {
+  title?: string
+  description?: string
+  path?: string
+  image?: string
+  noIndex?: boolean
+}
+{{/web}}
+{{#example}}
+
 export interface MenuContent {
+{{#web}}
   seo: PageSeo
+{{/web}}
   title: string
   intro: string
   loading: string
@@ -51,11 +42,4 @@ export interface MenuItem {
   available: boolean
   image?: string
 }
-
-export interface SeoInput {
-  title?: string
-  description?: string
-  path?: string
-  image?: string
-  noIndex?: boolean
-}
+{{/example}}

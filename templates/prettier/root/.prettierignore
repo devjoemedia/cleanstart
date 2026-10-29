@@ -1,7 +1,16 @@
+{{#next}}
 .next
 out
+next-env.d.ts
+{{/next}}
+{{#expo}}
+.expo
+android
+ios
+dist
+expo-env.d.ts
+{{/expo}}
 node_modules
 package-lock.json
 pnpm-lock.yaml
 yarn.lock
-next-env.d.ts

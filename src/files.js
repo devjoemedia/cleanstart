@@ -1,11 +1,26 @@
 import fs from 'node:fs'
 import path from 'node:path'
 
-// Fills {{key}} values and keeps only the {{#framework}}…{{/framework}} blocks that apply.
+// Tags on their own lines take the whole line with them; inline tags leave the line intact.
+const LINE_BLOCK = /^\{\{([#^])(\w+)\}\}\n([\s\S]*?)^\{\{\/\2\}\}\n/gm
+const INLINE_BLOCK = /\{\{([#^])(\w+)\}\}([\s\S]*?)\{\{\/\2\}\}/g
+
+// Fills {{key}} values and keeps the {{#flag}}…{{/flag}} blocks that apply ({{^flag}} when it doesn't).
 export function render(text, vars) {
-  return text
-    .replace(/\{\{#(\w+)\}\}\n?([\s\S]*?)\{\{\/\1\}\}\n?/g, (_, flag, body) => (vars[flag] ? body : ''))
-    .replace(/\{\{(\w+)\}\}/g, (match, key) => (key in vars ? String(vars[key]) : match))
+  const keep = (_, kind, flag, body) => (Boolean(vars[flag]) === (kind === '#') ? body : '')
+  // Repeat so blocks nested inside a kept block are resolved too; line blocks settle before inline ones.
+  let out = text
+  for (;;) {
+    const lines = out.replace(LINE_BLOCK, keep)
+    if (lines !== out) {
+      out = lines
+      continue
+    }
+    const inline = out.replace(INLINE_BLOCK, keep)
+    if (inline === out) break
+    out = inline
+  }
+  return out.replace(/\{\{(\w+)\}\}/g, (match, key) => (key in vars ? String(vars[key]) : match))
 }
 
 export function listFiles(dir, base = dir) {
@@ -26,6 +41,9 @@ export function copyTemplates({ from, to, cwd, vars, force, dryRun, report }) {
     const target = path.join(cwd, to, rel)
     const shown = path.relative(cwd, target)
     const exists = fs.existsSync(target)
+    // A placeholder is only needed to keep an empty folder in git.
+    const dir = path.dirname(target)
+    if (rel.endsWith('.gitkeep') && !exists && fs.existsSync(dir) && fs.readdirSync(dir).length) continue
     const content = rel.endsWith('.gitkeep') ? '' : render(fs.readFileSync(path.join(from, rel), 'utf8'), vars)
     if (exists && !force) {
       const current = fs.readFileSync(target, 'utf8')

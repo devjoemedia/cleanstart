@@ -1,5 +1,6 @@
 import { menuContent } from '#/content/menu'
-import { cn, formatPrice } from '#/lib/utils'
+import { formatPrice } from '#/lib/format'
+import { cn } from '#/lib/utils'
 import type { MenuItem } from '#/types'
 
 export function MenuItemCard({ item }: { item: MenuItem }) {

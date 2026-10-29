@@ -6,6 +6,3 @@ import type { ClassValue } from 'clsx'
 export function cn(...inputs: Array<ClassValue>) {
   return twMerge(clsx(inputs))
 }
-
-export const formatPrice = (value: number, currency = 'GBP', locale = 'en-GB') =>
-  new Intl.NumberFormat(locale, { style: 'currency', currency }).format(value)
