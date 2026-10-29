@@ -1,10 +1,10 @@
 import fs from 'node:fs'
 
-// Adds the #/ import alias and the lint, format and typecheck scripts; returns true if anything changed.
+// Adds the import alias and the lint, format and typecheck scripts; returns true if anything changed.
 export function patchPackageJson(pkg, vars) {
   const before = JSON.stringify(pkg)
-  // Metro resolves #/ through tsconfig paths, so Expo apps skip the package.json imports field.
-  if (vars.web) pkg.imports = { ...pkg.imports, '#/*': vars.alias }
+  // package.json imports only allow #-prefixed keys; @/ resolves through tsconfig paths alone.
+  if (vars.importPrefix === '#/') pkg.imports = { ...pkg.imports, '#/*': vars.alias }
   pkg.scripts = {
     ...pkg.scripts,
     typecheck: pkg.scripts?.typecheck ?? 'tsc --noEmit',
@@ -17,7 +17,7 @@ export function patchPackageJson(pkg, vars) {
 export function patchTsconfig(tsconfig, vars) {
   const before = JSON.stringify(tsconfig)
   const options = (tsconfig.compilerOptions ??= {})
-  options.paths = { ...options.paths, '#/*': [vars.alias] }
+  options.paths = { ...options.paths, [`${vars.importPrefix}*`]: [vars.alias] }
   options.noUnusedLocals = true
   options.noUnusedParameters = true
   return JSON.stringify(tsconfig) !== before
@@ -57,18 +57,18 @@ ${hasBase ? '' : '  --color-background: var(--background);\n  --color-foreground
 }
 
 // Next.js needs its own QueryClientProvider (TanStack Start's router integration already adds one).
-export function patchLayout(file, dryRun) {
+export function patchLayout(file, importPrefix, dryRun) {
   const src = fs.readFileSync(file, 'utf8')
   if (src.includes('QueryProvider')) return 'present'
   if (!src.includes('{children}')) return 'manual'
 
-  const out = addProviderImport(src).replace('{children}', '<QueryProvider>{children}</QueryProvider>')
+  const out = addProviderImport(src, importPrefix).replace('{children}', '<QueryProvider>{children}</QueryProvider>')
   if (!dryRun) fs.writeFileSync(file, out)
   return 'patched'
 }
 
 // Expo Router's root layout returns the navigator, so the provider wraps the default export's returned JSX.
-export function patchNativeLayout(file, dryRun) {
+export function patchNativeLayout(file, importPrefix, dryRun) {
   const src = fs.readFileSync(file, 'utf8')
   if (src.includes('QueryProvider')) return 'present'
 
@@ -81,7 +81,7 @@ export function patchNativeLayout(file, dryRun) {
   if (inline && (open === -1 || component + inline.index < open)) {
     const at = component + inline.index
     const jsx = `return <QueryProvider>${inline[1]}</QueryProvider>`
-    const out = addProviderImport(src.slice(0, at) + src.slice(at).replace(`return ${inline[1]}`, jsx))
+    const out = addProviderImport(src.slice(0, at) + src.slice(at).replace(`return ${inline[1]}`, jsx), importPrefix)
     if (!dryRun) fs.writeFileSync(file, out)
     return 'patched'
   }
@@ -103,16 +103,16 @@ export function patchNativeLayout(file, dryRun) {
     .map((line) => (line.trim() ? `  ${line}` : line))
     .join('\n')
   const wrapped = `\n${indent}<QueryProvider>\n${nested}\n${indent}</QueryProvider>\n${indent.slice(2)}`
-  const out = addProviderImport(src.slice(0, start) + wrapped + src.slice(end))
+  const out = addProviderImport(src.slice(0, start) + wrapped + src.slice(end), importPrefix)
   if (!dryRun) fs.writeFileSync(file, out)
   return 'patched'
 }
 
 // Inserts the QueryProvider import after the last import, matching the file's quote and semicolon style.
-function addProviderImport(src) {
+function addProviderImport(src, importPrefix) {
   const quote = /from "/.test(src) ? '"' : "'"
   const semi = /^import .*;\s*$/m.test(src) ? ';' : ''
-  const importLine = `import { QueryProvider } from ${quote}#/integrations/tanstack-query/query-provider${quote}${semi}`
+  const importLine = `import { QueryProvider } from ${quote}${importPrefix}integrations/tanstack-query/query-provider${quote}${semi}`
   const lines = src.split('\n')
   const lastImport = lines.findLastIndex((line) => /^import\s/.test(line) || /^\} from ['"]/.test(line))
   lines.splice(lastImport + 1, 0, importLine)

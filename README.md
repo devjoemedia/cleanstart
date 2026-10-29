@@ -31,7 +31,7 @@ docs/00-setup.md                   first numbered plan
 
 It also:
 
-- adds the `#/` import alias to `tsconfig.json` (and to `package.json` imports on web)
+- sets up the import alias: `@/` on Next.js and Expo (the alias they already ship with), `#/` on TanStack Start (in `tsconfig.json` and `package.json` imports)
 - adds `typecheck`, `format` and `check` scripts, and turns on `noUnusedLocals` / `noUnusedParameters`
 - **Next.js:** wraps `{children}` in the root layout with a single `QueryProvider`, adds brand tokens to `globals.css` and adds Prettier
 - **TanStack Start:** uses the router's existing Query integration and adds brand tokens to `styles.css`

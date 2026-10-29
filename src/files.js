@@ -20,7 +20,9 @@ export function render(text, vars) {
     if (inline === out) break
     out = inline
   }
-  return out.replace(/\{\{(\w+)\}\}/g, (match, key) => (key in vars ? String(vars[key]) : match))
+  out = out.replace(/\{\{(\w+)\}\}/g, (match, key) => (key in vars ? String(vars[key]) : match))
+  // Templates are written with #/ imports; swap in the project's own prefix (e.g. @/) when it differs.
+  return vars.importPrefix && vars.importPrefix !== '#/' ? out.replace(/(['"`])#\//g, `$1${vars.importPrefix}`) : out
 }
 
 export function listFiles(dir, base = dir) {

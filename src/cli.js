@@ -100,6 +100,8 @@ export async function run(argv) {
     srcPath: srcDir === '.' ? '' : `${srcDir}/`,
     appDir: appDir ?? '',
     alias: srcDir === '.' ? './*' : `./${srcDir}/*`,
+    // Next.js and Expo scaffold with @/ already; TanStack Start uses the #/ subpath import.
+    importPrefix: framework === 'tanstack' ? '#/' : '@/',
     devScript: platform === 'native' ? 'web' : 'dev',
     devPort: platform === 'native' ? 8081 : 3000,
     formatScript: platform === 'native' ? 'prettier --write .' : 'prettier --write . && eslint --fix',
@@ -118,7 +120,7 @@ export async function run(argv) {
   const pkg = project.pkg
   if (patchPackageJson(pkg, vars)) {
     writeJson(pkgFile, pkg, dryRun)
-    report.updated.push(`package.json (${vars.web ? '#/ alias, ' : ''}scripts)`)
+    report.updated.push(`package.json (${vars.importPrefix === '#/' ? '#/ alias, ' : ''}scripts)`)
   }
 
   const tsFile = path.join(cwd, 'tsconfig.json')
@@ -126,9 +128,9 @@ export async function run(argv) {
     const tsconfig = readJsonc(tsFile)
     if (patchTsconfig(tsconfig, vars)) {
       writeJson(tsFile, tsconfig, dryRun)
-      report.updated.push('tsconfig.json (#/ path, unused locals and parameters)')
+      report.updated.push(`tsconfig.json (${vars.importPrefix} path, unused locals and parameters)`)
     }
-  } else report.manual.push(`Add "#/*": ["${vars.alias}"] to compilerOptions.paths in tsconfig.json.`)
+  } else report.manual.push(`Add "${vars.importPrefix}*": ["${vars.alias}"] to compilerOptions.paths in tsconfig.json.`)
 
   if (vars.web) {
     const stylesFile = path.join(cwd, framework === 'next' ? path.join(appDir, 'globals.css') : path.join(srcDir, 'styles.css'))
@@ -141,12 +143,12 @@ export async function run(argv) {
     const layoutName = framework === 'next' ? 'layout' : '_layout'
     const layoutFile = ['tsx', 'jsx', 'js'].map((ext) => path.join(cwd, appDir, `${layoutName}.${ext}`)).find(fs.existsSync)
     const patch = framework === 'next' ? patchLayout : patchNativeLayout
-    const result = layoutFile ? patch(layoutFile, dryRun) : 'missing'
+    const result = layoutFile ? patch(layoutFile, vars.importPrefix, dryRun) : 'missing'
     const shown = layoutFile ? path.relative(cwd, layoutFile) : path.join(appDir, `${layoutName}.tsx`)
     if (result === 'patched') report.updated.push(`${shown} (QueryProvider)`)
     else if (result !== 'present') {
       const what = framework === 'next' ? '{children}' : 'the returned navigator'
-      report.manual.push(`Wrap ${what} in ${shown} with <QueryProvider> from '#/integrations/tanstack-query/query-provider'.`)
+      report.manual.push(`Wrap ${what} in ${shown} with <QueryProvider> from '${vars.importPrefix}integrations/tanstack-query/query-provider'.`)
     }
   }
 
