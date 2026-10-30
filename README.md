@@ -15,7 +15,7 @@ Only the files your framework uses are added, and `CLAUDE.md` and `docs/00-setup
 ```
 src/
 ├── components/
-│   ├── common/icon.tsx            string key → icon (lucide on web, Ionicons on native)
+│   ├── common/icon.tsx            string key → icon (lucide-react on web, lucide-react-native on Expo)
 │   └── layout/  ui/
 ├── content/  data/                typed page copy and mock records (empty, ready for your first domain)
 ├── hooks/queries/ mutations/
@@ -36,7 +36,7 @@ It also:
 - **Next.js:** wraps `{children}` in the root layout with a single `QueryProvider`, adds brand tokens to `globals.css` and adds Prettier
 - **TanStack Start:** uses the router's existing Query integration and adds brand tokens to `styles.css`
 - **Expo:** wraps the navigator in `app/_layout.tsx` with a `QueryProvider` that refetches when the app returns to the foreground, adds a light/dark token palette with a `useColors()` hook, and adds Prettier
-- installs what's missing: `@tanstack/react-query`, plus `clsx`, `tailwind-merge` and `lucide-react` on web, or `@expo/vector-icons` on Expo (through `expo install`, so versions match your SDK)
+- installs what's missing: `@tanstack/react-query`, plus `clsx`, `tailwind-merge` and `lucide-react` on web, or `lucide-react-native` and `react-native-svg` on Expo (through `expo install`, so versions match your SDK)
 
 ## The example slice
 

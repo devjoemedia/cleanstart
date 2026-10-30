@@ -35,7 +35,7 @@ const help = `
 const deps = {
   next: ['@tanstack/react-query', 'clsx', 'tailwind-merge', 'lucide-react'],
   tanstack: ['@tanstack/react-query', 'clsx', 'tailwind-merge', 'lucide-react'],
-  expo: ['@tanstack/react-query', '@expo/vector-icons'],
+  expo: ['@tanstack/react-query', 'lucide-react-native', 'react-native-svg'],
 }
 const devDeps = { next: ['prettier'], tanstack: [], expo: ['prettier'] }
 

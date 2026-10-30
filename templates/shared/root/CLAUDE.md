@@ -18,7 +18,7 @@
 - **Expo** with **React Native** and **Expo Router** (file-based routes in `{{appDir}}/`)
 - **TanStack Query** for server state, refetching when the app returns to the foreground
 - **StyleSheet** with brand tokens from `constants/tokens.ts`; colours come from `useColors()`
-- **@expo/vector-icons** (Ionicons) for icons
+- **lucide-react-native** (on `react-native-svg`) for icons
 {{/expo}}
 {{#web}}
 - **Tailwind CSS v4** with shadcn/ui primitives; every colour is a CSS variable

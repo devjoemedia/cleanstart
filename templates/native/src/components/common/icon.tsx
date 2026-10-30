@@ -1,15 +1,14 @@
-import Ionicons from '@expo/vector-icons/Ionicons'
-import type { ComponentProps } from 'react'
+import { ArrowRight, CircleAlert } from 'lucide-react-native'
+import type { LucideIcon, LucideProps } from 'lucide-react-native'
 import type { IconName } from '#/types'
 
-type IoniconProps = ComponentProps<typeof Ionicons>
-
-// Content refers to icons by string key; this is the only place keys become glyphs.
+// Content refers to icons by string key; this is the only place keys become components.
 const icons = {
-  'arrow-right': 'arrow-forward',
-  alert: 'alert-circle-outline',
-} satisfies Record<IconName, IoniconProps['name']>
+  'arrow-right': ArrowRight,
+  alert: CircleAlert,
+} satisfies Record<IconName, LucideIcon>
 
-export function Icon({ name, ...props }: { name: IconName } & Omit<IoniconProps, 'name'>) {
-  return <Ionicons name={icons[name]} accessibilityElementsHidden importantForAccessibility="no" {...props} />
+export function Icon({ name, ...props }: { name: IconName } & LucideProps) {
+  const Component = icons[name]
+  return <Component accessibilityElementsHidden importantForAccessibility="no" {...props} />
 }
