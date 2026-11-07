@@ -2,8 +2,8 @@
 const light = {
   background: '#ffffff',
   foreground: '#171717',
-  primary: '#d2461a',
-  primaryForeground: '#ffffff',
+  primary: '{{primary}}',
+  primaryForeground: '{{primaryForeground}}',
   muted: '#f4f4f5',
   mutedForeground: '#71717a',
   border: '#e4e4e7',
@@ -14,8 +14,8 @@ export type Colors = typeof light
 const dark: Colors = {
   background: '#0a0a0a',
   foreground: '#fafafa',
-  primary: '#e8673d',
-  primaryForeground: '#ffffff',
+  primary: '{{primaryDark}}',
+  primaryForeground: '{{primaryForegroundDark}}',
   muted: '#27272a',
   mutedForeground: '#a1a1aa',
   border: '#3f3f46',

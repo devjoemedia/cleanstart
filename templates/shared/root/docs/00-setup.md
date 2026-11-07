@@ -4,22 +4,22 @@ Plans live in `docs/`, numbered in the order they're decided (`01-auth.md`, `02-
 
 ## Goal
 
-<What this project is for, in two sentences.>
+{{#hasDescription}}{{description}}{{/hasDescription}}{{^hasDescription}}<What this project is for, in two sentences.>{{/hasDescription}}
 
 ## Done so far
 
 - [x] Project scaffolded with {{framework}} and {{pm}}
-- [x] Folder structure, `#/` alias, lint, format and typecheck scripts (cleanstart)
+- [x] Folder structure, `{{importPrefix}}` alias, lint, format and typecheck scripts (cleanstart)
 {{#example}}
 - [x] Example slice: menu type → data → query hook → {{#web}}page{{/web}}{{#native}}screen{{/native}} → component
 {{/example}}
 {{#web}}
-- [ ] Fill in `constants/site.ts` (name, URL, description, OG image)
-- [ ] Replace the brand tokens in the main stylesheet with the real palette
+- [ ] Check `constants/site.ts` (OG image, locale, Twitter handle)
+- [ ] Fine-tune the brand tokens in the main stylesheet (primary is {{primary}})
 {{/web}}
 {{#native}}
-- [ ] Set the app name, icon and splash screen in `app.json`
-- [ ] Replace the brand tokens in `constants/tokens.ts` with the real palette
+- [ ] Set the app icon and splash screen in `app.json`
+- [ ] Fine-tune the brand tokens in `constants/tokens.ts` (primary is {{primary}})
 - [ ] Set `EXPO_PUBLIC_API_URL` in `.env` when the API is live
 {{/native}}
 {{#example}}

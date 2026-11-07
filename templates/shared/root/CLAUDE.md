@@ -1,7 +1,7 @@
 <!-- cleanstart -->
 # CLAUDE.md — {{projectName}}
 
-<Two sentences: what the product is and who it's for.> Core domains: <list>.
+{{#hasDescription}}{{description}}{{/hasDescription}}{{^hasDescription}}<Two sentences: what the product is and who it's for.>{{/hasDescription}} Core domains: <list>.
 
 ## 1. Stack
 

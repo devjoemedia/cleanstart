@@ -26,7 +26,7 @@ export function patchTsconfig(tsconfig, vars) {
 const TOKEN_MARKER = 'cleanstart:tokens'
 
 // Appends brand tokens mapped onto shadcn's names; skipped if they were added before.
-export function patchStyles(file, dryRun) {
+export function patchStyles(file, vars, dryRun) {
   if (!fs.existsSync(file)) return false
   const css = fs.readFileSync(file, 'utf8')
   if (css.includes(TOKEN_MARKER)) return false
@@ -35,8 +35,8 @@ export function patchStyles(file, dryRun) {
   const block = `
 /* ${TOKEN_MARKER}: brand tokens. Components use bg-primary or text-foreground, never hex values. */
 :root {
-${hasBase ? '' : '  --background: #ffffff;\n  --foreground: #171717;\n'}  --primary: #d2461a;
-  --primary-foreground: #ffffff;
+${hasBase ? '' : '  --background: #ffffff;\n  --foreground: #171717;\n'}  --primary: ${vars.primary};
+  --primary-foreground: ${vars.primaryForeground};
   --muted: #f4f4f5;
   --muted-foreground: #71717a;
   --border: #e4e4e7;
@@ -117,4 +117,15 @@ function addProviderImport(src, importPrefix) {
   const lastImport = lines.findLastIndex((line) => /^import\s/.test(line) || /^\} from ['"]/.test(line))
   lines.splice(lastImport + 1, 0, importLine)
   return lines.join('\n')
+}
+
+// Sets the Expo app's display name; the slug is left alone because EAS ties builds to it.
+export function patchAppJson(file, name, dryRun) {
+  if (!fs.existsSync(file)) return false
+  const json = JSON.parse(fs.readFileSync(file, 'utf8'))
+  const expo = (json.expo ??= {})
+  if (expo.name === name) return false
+  expo.name = name
+  if (!dryRun) fs.writeFileSync(file, `${JSON.stringify(json, null, 2)}\n`)
+  return true
 }

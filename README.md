@@ -38,6 +38,33 @@ It also:
 - **Expo:** wraps the navigator in `app/_layout.tsx` with a `QueryProvider` that refetches when the app returns to the foreground, adds a light/dark token palette with a `useColors()` hook, and adds Prettier
 - installs what's missing: `@tanstack/react-query`, plus `clsx`, `tailwind-merge` and `lucide-react` on web, or `lucide-react-native` and `react-native-svg` on Expo (through `expo install`, so versions match your SDK)
 
+## Project details
+
+When you run it at a terminal, cleanstart asks a few questions and writes the answers straight into the files, so there's nothing to find and replace afterwards:
+
+```
+  Project name (My App): Joe's Café
+  Short description (optional): Fresh coffee in Accra.
+  Site URL (https://www.example.com): joescafe.com
+  Author (Joseph Nartey):
+  Brand colour (#d2461a): #1e40af
+  Add the menu example slice? (y/N): y
+```
+
+| Answer | Where it goes |
+| --- | --- |
+| Project name | `CLAUDE.md`, `constants/site.ts` (web), `app.json` name (Expo) |
+| Description | `CLAUDE.md`, `docs/00-setup.md`, `constants/site.ts` (web) |
+| Site URL | `constants/site.ts` (web only, not asked on Expo) |
+| Author | `@author` in file headers |
+| Brand colour | `--primary` in the stylesheet (web) or the light and dark palette in `constants/tokens.ts` (Expo), with a readable foreground colour picked for you |
+
+Press Enter to keep a default. Pass any answer as a flag to skip that question, or `--yes` to skip them all (handy in CI):
+
+```bash
+npx @devjoemedia/cleanstart --name "Joe's Café" --url joescafe.com --color 1e40af --yes
+```
+
 ## The example slice
 
 Pass `--example` to also add a menu example: one full vertical slice, **type → data → query hook → page or screen → component**, with loading, empty and error states. Copy it for your first real domain, then delete it. Without the flag, nothing menu-related is added.
@@ -78,6 +105,8 @@ npx @devjoemedia/cleanstart --framework next --dry-run
 | --- | --- |
 | `--framework next\|tanstack\|expo` | Skip detection |
 | `--example` | Also add the menu example slice |
+| `--name`, `--description`, `--url`, `--author`, `--color` | Answer a question up front |
+| `-y`, `--yes` | Ask nothing; use flags and defaults |
 | `--dry-run` | List what would change without writing anything |
 | `--force` | Overwrite files that already exist (they're skipped by default) |
 | `--no-install` | Don't install packages; prints what to install instead |

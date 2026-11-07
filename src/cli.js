@@ -6,7 +6,8 @@ import { fileURLToPath } from 'node:url'
 import { parseArgs } from 'node:util'
 import { FRAMEWORKS, pmCommands, readProject, resolveLayout } from './detect.js'
 import { copyTemplates, readJsonc, writeJson } from './files.js'
-import { patchLayout, patchNativeLayout, patchPackageJson, patchStyles, patchTsconfig } from './patch.js'
+import { askProjectDetails, jsString, lighten, readableOn, titleCase } from './prompts.js'
+import { patchAppJson, patchLayout, patchNativeLayout, patchPackageJson, patchStyles, patchTsconfig } from './patch.js'
 
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)))
 const templates = path.join(root, 'templates')
@@ -23,6 +24,12 @@ const help = `
   Options
     --framework <${frameworkKeys.join('|')}>   skip detection
     --example                       also add the menu example slice (type → data → hook → page → component)
+    --name <name>                   project name (asked if not given)
+    --description <text>            one-line description
+    --url <url>                     site URL (web only)
+    --author <name>                 author for file headers (default: git user.name)
+    --color <hex>                   brand colour, e.g. #d2461a
+    -y, --yes                       don't ask anything; use flags and defaults
     --cwd <dir>                     project folder (default: current folder)
     --dry-run                       show what would change, write nothing
     --force                         overwrite files that already exist
@@ -56,6 +63,12 @@ export async function run(argv) {
     options: {
       framework: { type: 'string' },
       example: { type: 'boolean' },
+      name: { type: 'string' },
+      description: { type: 'string' },
+      url: { type: 'string' },
+      author: { type: 'string' },
+      color: { type: 'string' },
+      yes: { type: 'boolean', short: 'y' },
       cwd: { type: 'string' },
       'dry-run': { type: 'boolean' },
       force: { type: 'boolean' },
@@ -72,13 +85,21 @@ export async function run(argv) {
 
   const cwd = path.resolve(values.cwd ?? process.cwd())
   const dryRun = Boolean(values['dry-run'])
-  const example = Boolean(values.example)
   const project = readProject(cwd)
   const framework = values.framework ?? (await chooseFramework(project.detected))
   const { srcDir, appDir } = resolveLayout(cwd, framework, project.deps)
   const { pm } = project
   const cmd = pmCommands[pm]
   const { label, platform } = FRAMEWORKS[framework]
+
+  const details = await askProjectDetails({
+    flags: { ...values },
+    defaults: { name: titleCase(project.name), author: gitUserName() },
+    web: platform === 'web',
+    interactive: Boolean(process.stdin.isTTY) && !values.yes,
+    askExample: true,
+  })
+  const { example } = details
 
   console.log(`\n  cleanstart ${version}${dryRun ? ' (dry run)' : ''}`)
   console.log(`  ${label} · ${pm} · src: ${srcDir === '.' ? 'project root' : `${srcDir}/`}${example ? ' · with menu example' : ''}\n`)
@@ -90,8 +111,17 @@ export async function run(argv) {
     web: platform === 'web',
     native: platform === 'native',
     example,
-    projectName: project.name,
-    author: gitUserName() || 'Your Name',
+    projectName: details.name,
+    projectNameJs: jsString(details.name),
+    description: details.description,
+    descriptionJs: jsString(details.description || 'One or two sentences about what this site is and who it is for.'),
+    hasDescription: Boolean(details.description),
+    siteUrl: details.url,
+    author: details.author,
+    primary: details.color,
+    primaryDark: lighten(details.color),
+    primaryForeground: readableOn(details.color),
+    primaryForegroundDark: readableOn(lighten(details.color)),
     framework: label,
     run: cmd.run,
     exec: cmd.exec,
@@ -134,7 +164,7 @@ export async function run(argv) {
 
   if (vars.web) {
     const stylesFile = path.join(cwd, framework === 'next' ? path.join(appDir, 'globals.css') : path.join(srcDir, 'styles.css'))
-    const styles = patchStyles(stylesFile, dryRun)
+    const styles = patchStyles(stylesFile, vars, dryRun)
     if (styles) report.updated.push(`${path.relative(cwd, stylesFile)} (brand tokens)`)
     else if (!fs.existsSync(stylesFile)) report.manual.push(`Add the brand tokens to your main stylesheet (${path.relative(cwd, stylesFile)} not found).`)
   }
@@ -150,6 +180,11 @@ export async function run(argv) {
       const what = framework === 'next' ? '{children}' : 'the returned navigator'
       report.manual.push(`Wrap ${what} in ${shown} with <QueryProvider> from '${vars.importPrefix}integrations/tanstack-query/query-provider'.`)
     }
+  }
+
+  if (framework === 'expo') {
+    const appJson = path.join(cwd, 'app.json')
+    if (patchAppJson(appJson, details.name, dryRun)) report.updated.push('app.json (app name)')
   }
 
   const toInstall = deps[framework].filter((d) => !pkg.dependencies?.[d])
@@ -201,8 +236,8 @@ async function chooseFramework(detected) {
 function printNextSteps({ framework, vars, cmd, example }) {
   const steps =
     framework === 'expo'
-      ? ['Set the app name, icon and splash screen in app.json.', `Replace the brand palette in ${vars.srcPath}constants/tokens.ts.`]
-      : [`Fill in ${vars.srcPath}constants/site.ts (name, URL, description).`]
+      ? ['Set the app icon and splash screen in app.json.', `Fine-tune the brand palette in ${vars.srcPath}constants/tokens.ts.`]
+      : [`Check ${vars.srcPath}constants/site.ts (OG image, locale, Twitter handle).`]
   if (example) {
     const how = { next: 'server prefetch', tanstack: 'loader', expo: 'screen' }[framework]
     steps.push(
