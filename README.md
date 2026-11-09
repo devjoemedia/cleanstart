@@ -6,7 +6,7 @@ Add a clean, CMS-ready structure to a new **Next.js**, **TanStack Start** or **E
 npx @devjoemedia/cleanstart
 ```
 
-Run it inside a freshly created project. It detects the framework and package manager, picks the matching template, writes the files into the right folders, updates your config and installs what's needed. If it can't tell which framework the project uses, it asks you (or pass `--framework`).
+Run it inside a freshly created project. It detects the framework, asks which package manager to use (the detected one is the default), picks the matching template, writes the files into the right folders, updates your config and installs what's needed. If it can't tell which framework the project uses, it asks you (or pass `--framework`).
 
 Only the files your framework uses are added, and `CLAUDE.md` and `docs/00-setup.md` describe exactly what was installed. You don't have to rename or delete anything afterwards.
 
@@ -142,9 +142,9 @@ mkdir my-api && cd my-api && npm init -y && npm install express
 npx @devjoemedia/cleanstart --framework express
 ```
 
-On NestJS, run `npm run format` once afterwards. Nest's Prettier config uses semicolons, and the new files are written without them.
+On NestJS, run the `format` script once afterwards (`npm run format`, `yarn format`, …). Nest's Prettier config uses semicolons, and the new files are written without them.
 
-`--framework` is optional when the project has a single framework, because cleanstart detects it. A NestJS project that also lists `express` is treated as NestJS. Passing it makes the command explicit and skips the prompt when detection is unclear.
+`--framework` is optional when the project has a single framework, because cleanstart detects it. A NestJS project that also lists `express` is treated as NestJS. Passing it makes the command explicit and skips the prompt when detection is unclear. It also checks that the project really uses that framework, so running in the wrong folder fails with a clear message.
 
 Add `--example` to any of these to include the menu example slice:
 
