@@ -23,6 +23,7 @@ const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)))
 const templates = path.join(root, 'templates')
 const { version } = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'))
 const frameworkKeys = Object.keys(FRAMEWORKS)
+const pmKeys = Object.keys(pmCommands)
 
 const help = `
   cleanstart ${version}
@@ -33,6 +34,7 @@ const help = `
 
   Options
     --framework <${frameworkKeys.join('|')}>   skip detection
+    --pm <${pmKeys.join('|')}>        package manager (asked if not given; default: detected)
     --example                       also add the menu example slice (type → data → hook → page → component,
                                     or type → data → service → controller on an API)
     --name <name>                   project name (asked if not given)
@@ -83,6 +85,7 @@ export async function run(argv) {
     args: argv,
     options: {
       framework: { type: 'string' },
+      pm: { type: 'string' },
       example: { type: 'boolean' },
       name: { type: 'string' },
       description: { type: 'string' },
@@ -103,23 +106,31 @@ export async function run(argv) {
   if (values.framework && !FRAMEWORKS[values.framework]) {
     throw new Error(`--framework must be one of: ${frameworkKeys.join(', ')}`)
   }
+  if (values.pm && !pmCommands[values.pm]) throw new Error(`--pm must be one of: ${pmKeys.join(', ')}`)
 
   const cwd = path.resolve(values.cwd ?? process.cwd())
   const dryRun = Boolean(values['dry-run'])
   const project = readProject(cwd)
+  // --framework skips detection, so make sure the project really uses it (catches running in the wrong folder).
+  if (values.framework && !project.deps[FRAMEWORKS[values.framework].dep]) {
+    const { label, dep } = FRAMEWORKS[values.framework]
+    throw new Error(`${cwd} is not a ${label} project (${dep} is not in package.json). Check you are in the right folder.`)
+  }
   const framework = values.framework ?? (await chooseFramework(project.detected))
   const { srcDir, appDir } = resolveLayout(cwd, framework, project.deps)
-  const { pm, pkg } = project
-  const cmd = pmCommands[pm]
   const { label, platform } = FRAMEWORKS[framework]
   const server = platform === 'server'
+  const interactive = Boolean(process.stdin.isTTY) && !values.yes
+  const { pkg } = project
+  const pm = values.pm ?? (interactive ? await choosePackageManager(project) : project.pm)
+  const cmd = pmCommands[pm]
 
   const details = await askProjectDetails({
     flags: { ...values },
     defaults: { name: titleCase(project.name), author: gitUserName() },
     web: platform === 'web',
     server,
-    interactive: Boolean(process.stdin.isTTY) && !values.yes,
+    interactive,
     askExample: true,
   })
   const { example } = details
@@ -268,6 +279,29 @@ async function chooseFramework(detected) {
       const answer = (await rl.question(`  Choose 1-${options.length}: `)).trim()
       const picked = options[Number(answer) - 1] ?? options.find((key) => key === answer)
       if (picked) return picked
+    }
+  } finally {
+    rl.close()
+  }
+}
+
+// Asks which package manager to use; Enter keeps the detected one.
+async function choosePackageManager({ pm: detected, lockfile }) {
+  const rl = readline.createInterface({ input: process.stdin, output: process.stdout })
+  try {
+    console.log('\n  Which package manager would you like to use?')
+    pmKeys.forEach((key, i) => {
+      const note = key === detected ? (lockfile ? ` (found ${lockfile})` : ' (detected)') : ''
+      console.log(`    ${i + 1}. ${key}${note}`)
+    })
+    for (;;) {
+      const answer = (await rl.question(`  Choose 1-${pmKeys.length} (${detected}): `)).trim()
+      if (!answer) return detected
+      const picked = pmKeys[Number(answer) - 1] ?? pmKeys.find((key) => key === answer)
+      if (!picked) continue
+      // Installing with a second package manager leaves two lockfiles that drift apart.
+      if (lockfile && picked !== detected) console.log(`    Note: ${lockfile} is from ${detected}; delete it so only ${picked}'s lockfile remains.`)
+      return picked
     }
   } finally {
     rl.close()

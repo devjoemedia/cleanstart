@@ -21,7 +21,7 @@ export function readProject(cwd) {
   let detected = Object.keys(FRAMEWORKS).filter((key) => deps[FRAMEWORKS[key].dep])
   // NestJS runs on Express, so a Nest project that lists express directly is still Nest.
   if (detected.includes('nest')) detected = detected.filter((key) => key !== 'express')
-  return { pkg, deps, detected, pm: detectPackageManager(cwd), name: pkg.name ?? path.basename(cwd) }
+  return { pkg, deps, detected, ...detectPackageManager(cwd), name: pkg.name ?? path.basename(cwd) }
 }
 
 // Finds where source files and routes live for the chosen framework.
@@ -52,15 +52,16 @@ export function resolveLayout(cwd, framework, deps) {
   return { srcDir, appDir }
 }
 
+// Uses the lockfile when there is one, otherwise the package manager that launched cleanstart.
 function detectPackageManager(cwd) {
-  const has = (file) => fs.existsSync(path.join(cwd, file))
-  if (has('pnpm-lock.yaml')) return 'pnpm'
-  if (has('yarn.lock')) return 'yarn'
-  if (has('bun.lock') || has('bun.lockb')) return 'bun'
-  if (has('package-lock.json')) return 'npm'
+  const lockfiles = { pnpm: ['pnpm-lock.yaml'], yarn: ['yarn.lock'], bun: ['bun.lock', 'bun.lockb'], npm: ['package-lock.json'] }
+  for (const [pm, files] of Object.entries(lockfiles)) {
+    const lockfile = files.find((file) => fs.existsSync(path.join(cwd, file)))
+    if (lockfile) return { pm, lockfile }
+  }
   const agent = process.env.npm_config_user_agent ?? ''
-  for (const pm of ['pnpm', 'yarn', 'bun']) if (agent.startsWith(pm)) return pm
-  return 'npm'
+  for (const pm of ['pnpm', 'yarn', 'bun']) if (agent.startsWith(pm)) return { pm, lockfile: null }
+  return { pm: 'npm', lockfile: null }
 }
 
 export const pmCommands = {

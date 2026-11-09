@@ -100,6 +100,8 @@ When you run it at a terminal, cleanstart asks a few questions and writes the an
 | Author | `@author` in file headers |
 | Brand colour | `--primary` in the stylesheet (web) or the light and dark palette in `constants/tokens.ts` (Expo), with a readable foreground colour picked for you. Not asked on the APIs |
 
+Before the details, it asks which package manager to use, with the one it detected (from the lockfile, or the one you ran `npx`/`pnpm dlx`/`bunx` with) as the default. Pick a different one and it reminds you to delete the old lockfile.
+
 Press Enter to keep a default. Pass any answer as a flag to skip that question, or `--yes` to skip them all (handy in CI):
 
 ```bash
@@ -161,6 +163,7 @@ npx @devjoemedia/cleanstart --framework next --dry-run
 | Flag | What it does |
 | --- | --- |
 | `--framework next\|tanstack\|expo\|nest\|express` | Skip detection |
+| `--pm npm\|pnpm\|yarn\|bun` | Use this package manager instead of asking (the default is the one detected from the lockfile) |
 | `--example` | Also add the menu example slice |
 | `--name`, `--description`, `--url`, `--author`, `--color` | Answer a question up front (`--url` and `--color` are ignored on the APIs) |
 | `-y`, `--yes` | Ask nothing; use flags and defaults |
