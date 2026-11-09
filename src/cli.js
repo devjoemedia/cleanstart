@@ -7,7 +7,17 @@ import { parseArgs } from 'node:util'
 import { FRAMEWORKS, pmCommands, readProject, resolveLayout } from './detect.js'
 import { copyTemplates, readJsonc, writeJson } from './files.js'
 import { askProjectDetails, jsString, lighten, readableOn, titleCase } from './prompts.js'
-import { patchAppJson, patchLayout, patchNativeLayout, patchPackageJson, patchStyles, patchTsconfig } from './patch.js'
+import {
+  patchAppJson,
+  patchJestConfig,
+  patchLayout,
+  patchNativeLayout,
+  patchNestMain,
+  patchNestModule,
+  patchPackageJson,
+  patchStyles,
+  patchTsconfig,
+} from './patch.js'
 
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)))
 const templates = path.join(root, 'templates')
@@ -16,19 +26,20 @@ const frameworkKeys = Object.keys(FRAMEWORKS)
 
 const help = `
   cleanstart ${version}
-  Adds a clean, CMS-ready project structure to a Next.js, TanStack Start or Expo app.
+  Adds a clean, CMS-ready project structure to a Next.js, TanStack Start, Expo, NestJS or Express app.
 
   Usage
     npx @devjoemedia/cleanstart [options]   run inside the project folder
 
   Options
     --framework <${frameworkKeys.join('|')}>   skip detection
-    --example                       also add the menu example slice (type → data → hook → page → component)
+    --example                       also add the menu example slice (type → data → hook → page → component,
+                                    or type → data → service → controller on an API)
     --name <name>                   project name (asked if not given)
     --description <text>            one-line description
     --url <url>                     site URL (web only)
     --author <name>                 author for file headers (default: git user.name)
-    --color <hex>                   brand colour, e.g. #d2461a
+    --color <hex>                   brand colour, e.g. #d2461a (web and Expo only)
     -y, --yes                       don't ask anything; use flags and defaults
     --cwd <dir>                     project folder (default: current folder)
     --dry-run                       show what would change, write nothing
@@ -43,18 +54,28 @@ const deps = {
   next: ['@tanstack/react-query', 'clsx', 'tailwind-merge', 'lucide-react'],
   tanstack: ['@tanstack/react-query', 'clsx', 'tailwind-merge', 'lucide-react'],
   expo: ['@tanstack/react-query', 'lucide-react-native', 'react-native-svg'],
+  nest: ['class-validator', 'class-transformer'],
+  express: ['zod'],
 }
-const devDeps = { next: ['prettier'], tanstack: [], expo: ['prettier'] }
+const devDeps = {
+  next: ['prettier'],
+  tanstack: [],
+  expo: ['prettier'],
+  nest: [],
+  express: ['typescript', 'tsx', 'tsc-alias', '@types/express', '@types/node', 'prettier'],
+}
 
 // Template layers, applied in order. Each may hold src/ (→ source folder), root/ (→ project root) and app/ (→ routes).
+// client holds what every front end shares; an API's platform is already server, so the set drops the repeat.
 function layersFor(framework, example) {
   const { platform } = FRAMEWORKS[framework]
-  const layers = ['shared', platform, framework]
-  // TanStack Start ships its own Prettier setup.
-  if (framework !== 'tanstack') layers.push('prettier')
-  if (example) layers.push('example/shared', `example/${platform}`, `example/${framework}`)
-  else layers.push('blank')
-  return layers
+  const side = platform === 'server' ? 'server' : 'client'
+  const layers = ['shared', side, platform, framework]
+  // TanStack Start and NestJS ship their own Prettier setup.
+  if (framework !== 'tanstack' && framework !== 'nest') layers.push('prettier')
+  if (example) layers.push('example/shared', `example/${side}`, `example/${platform}`, `example/${framework}`)
+  else layers.push(`blank/${side}`)
+  return [...new Set(layers)]
 }
 
 export async function run(argv) {
@@ -88,14 +109,16 @@ export async function run(argv) {
   const project = readProject(cwd)
   const framework = values.framework ?? (await chooseFramework(project.detected))
   const { srcDir, appDir } = resolveLayout(cwd, framework, project.deps)
-  const { pm } = project
+  const { pm, pkg } = project
   const cmd = pmCommands[pm]
   const { label, platform } = FRAMEWORKS[framework]
+  const server = platform === 'server'
 
   const details = await askProjectDetails({
     flags: { ...values },
     defaults: { name: titleCase(project.name), author: gitUserName() },
     web: platform === 'web',
+    server,
     interactive: Boolean(process.stdin.isTTY) && !values.yes,
     askExample: true,
   })
@@ -108,8 +131,16 @@ export async function run(argv) {
     next: framework === 'next',
     tanstack: framework === 'tanstack',
     expo: framework === 'expo',
+    nest: framework === 'nest',
+    express: framework === 'express',
     web: platform === 'web',
     native: platform === 'native',
+    client: !server,
+    server,
+    // Node's ESM resolver needs the .js extension; CommonJS builds (NestJS 11 and earlier) can't rewrite aliases with one.
+    esm: server && pkg.type === 'module',
+    ext: server && pkg.type === 'module' ? '.js' : '',
+    hasLint: framework !== 'express',
     example,
     projectName: details.name,
     projectNameJs: jsString(details.name),
@@ -130,11 +161,17 @@ export async function run(argv) {
     srcPath: srcDir === '.' ? '' : `${srcDir}/`,
     appDir: appDir ?? '',
     alias: srcDir === '.' ? './*' : `./${srcDir}/*`,
-    // Next.js and Expo scaffold with @/ already; TanStack Start uses the #/ subpath import.
+    // Next.js, Expo and NestJS resolve @/ already; TanStack Start uses the #/ subpath import.
+    // Node rejects #/ at runtime, so the APIs use tsconfig paths, rewritten at build time.
     importPrefix: framework === 'tanstack' ? '#/' : '@/',
-    devScript: platform === 'native' ? 'web' : 'dev',
+    devScript: { expo: 'web', nest: 'start:dev' }[framework] ?? 'dev',
     devPort: platform === 'native' ? 8081 : 3000,
-    formatScript: platform === 'native' ? 'prettier --write .' : 'prettier --write . && eslint --fix',
+    formatScript:
+      platform === 'native' || framework === 'express' ? 'prettier --write .' : 'prettier --write . && eslint --fix',
+    scripts:
+      framework === 'express'
+        ? { dev: 'tsx watch src/server.ts', build: 'tsc && tsc-alias', start: 'node dist/server.js' }
+        : {},
   }
 
   const report = { created: [], overwritten: [], skipped: [], updated: [], manual: [] }
@@ -147,20 +184,21 @@ export async function run(argv) {
   }
 
   const pkgFile = path.join(cwd, 'package.json')
-  const pkg = project.pkg
   if (patchPackageJson(pkg, vars)) {
     writeJson(pkgFile, pkg, dryRun)
     report.updated.push(`package.json (${vars.importPrefix === '#/' ? '#/ alias, ' : ''}scripts)`)
   }
 
   const tsFile = path.join(cwd, 'tsconfig.json')
-  if (fs.existsSync(tsFile)) {
+  // A tsconfig cleanstart just wrote already has the alias (and doesn't exist yet in a dry run).
+  const wroteTsconfig = report.created.includes('tsconfig.json')
+  if (!wroteTsconfig && fs.existsSync(tsFile)) {
     const tsconfig = readJsonc(tsFile)
     if (patchTsconfig(tsconfig, vars)) {
       writeJson(tsFile, tsconfig, dryRun)
       report.updated.push(`tsconfig.json (${vars.importPrefix} path, unused locals and parameters)`)
     }
-  } else report.manual.push(`Add "${vars.importPrefix}*": ["${vars.alias}"] to compilerOptions.paths in tsconfig.json.`)
+  } else if (!wroteTsconfig) report.manual.push(`Add "${vars.importPrefix}*": ["${vars.alias}"] to compilerOptions.paths in tsconfig.json.`)
 
   if (vars.web) {
     const stylesFile = path.join(cwd, framework === 'next' ? path.join(appDir, 'globals.css') : path.join(srcDir, 'styles.css'))
@@ -186,6 +224,9 @@ export async function run(argv) {
     const appJson = path.join(cwd, 'app.json')
     if (patchAppJson(appJson, details.name, dryRun)) report.updated.push('app.json (app name)')
   }
+
+  if (framework === 'nest') patchNest({ cwd, pkg, vars, example, dryRun, report })
+  if (framework === 'express') checkExpress({ cwd, pkg, project, dryRun, report })
 
   const toInstall = deps[framework].filter((d) => !pkg.dependencies?.[d])
   const toInstallDev = devDeps[framework].filter((d) => !pkg.devDependencies?.[d] && !pkg.dependencies?.[d])
@@ -234,6 +275,7 @@ async function chooseFramework(detected) {
 }
 
 function printNextSteps({ framework, vars, cmd, example }) {
+  if (vars.server) return printServerNextSteps({ framework, vars, cmd, example })
   const steps =
     framework === 'expo'
       ? ['Set the app icon and splash screen in app.json.', `Fine-tune the brand palette in ${vars.srcPath}constants/tokens.ts.`]
@@ -250,6 +292,80 @@ function printNextSteps({ framework, vars, cmd, example }) {
   }
   steps.push(`Check everything: ${cmd.run} typecheck && ${cmd.run} lint`)
   console.log(`\n  Next steps\n${steps.map((step, i) => `    ${i + 1}. ${step}`).join('\n')}\n`)
+}
+
+function printServerNextSteps({ framework, vars, cmd, example }) {
+  const dev = `${cmd.run} ${vars.devScript}`
+  const shape = framework === 'nest' ? 'type → data → service → controller → module' : 'type → data → service → controller → routes'
+  const steps = []
+  // Nest's Prettier config uses semicolons; the templates are written without them.
+  if (framework === 'nest') steps.push(`Run ${cmd.run} format once so the new files match the project's Prettier style.`)
+  if (example) {
+    steps.push(
+      `Run ${dev} and open http://localhost:3000/menu to see the example slice: ${shape}.`,
+      `Read CLAUDE.md, then copy modules/menu for your first real domain and delete the example.`,
+    )
+  } else steps.push(`Read CLAUDE.md, then build your first domain in modules/: ${shape}.`)
+  const checks = [`${cmd.run} typecheck`, vars.hasLint && `${cmd.run} lint`, framework === 'nest' && `${cmd.run} test`]
+  steps.push(`Check everything: ${checks.filter(Boolean).join(' && ')}`)
+  console.log(`\n  Next steps\n${steps.map((step, i) => `    ${i + 1}. ${step}`).join('\n')}\n`)
+}
+
+// Registers the global pipe and filter, mounts the example module and teaches Jest the alias.
+function patchNest({ cwd, pkg, vars, example, dryRun, report }) {
+  const mainFile = path.join(cwd, 'src/main.ts')
+  const filter = `${vars.importPrefix}common/filters/all-exceptions.filter${vars.ext}`
+  const main = patchNestMain(mainFile, filter, dryRun)
+  if (main === 'patched') report.updated.push('src/main.ts (ValidationPipe, AllExceptionsFilter)')
+  else if (main === 'manual') {
+    report.manual.push(
+      'Before app.listen() in src/main.ts, add app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }))' +
+        ` and app.useGlobalFilters(new AllExceptionsFilter()) from '${filter}'.`,
+    )
+  }
+
+  if (example) {
+    const source = `${vars.importPrefix}modules/menu/menu.module${vars.ext}`
+    const moduleFile = path.join(cwd, 'src/app.module.ts')
+    const result = fs.existsSync(moduleFile) ? patchNestModule(moduleFile, 'MenuModule', source, dryRun) : 'manual'
+    if (result === 'patched') report.updated.push('src/app.module.ts (MenuModule)')
+    else if (result === 'manual') report.manual.push(`Add MenuModule from '${source}' to the imports of your root module.`)
+  }
+
+  // Vitest (NestJS 12+) reads tsconfig paths itself; Jest needs a moduleNameMapper.
+  const mapped = []
+  if (patchJestConfig(pkg.jest, vars.importPrefix, '<rootDir>/$1')) {
+    writeJson(path.join(cwd, 'package.json'), pkg, dryRun)
+    mapped.push('package.json')
+  }
+  const e2eFile = path.join(cwd, 'test/jest-e2e.json')
+  if (fs.existsSync(e2eFile)) {
+    const e2e = readJsonc(e2eFile)
+    if (patchJestConfig(e2e, vars.importPrefix, '<rootDir>/../src/$1')) {
+      writeJson(e2eFile, e2e, dryRun)
+      mapped.push('test/jest-e2e.json')
+    }
+  }
+  for (const file of mapped) report.updated.push(`${file} (Jest ${vars.importPrefix} alias)`)
+}
+
+// Express has no project layout of its own, so this flags what the new src/ structure can't take care of.
+function checkExpress({ cwd, pkg, project, dryRun, report }) {
+  const gitignore = path.join(cwd, '.gitignore')
+  if (!fs.existsSync(gitignore)) {
+    if (!dryRun) fs.writeFileSync(gitignore, 'node_modules\ndist\n.env\n')
+    report.created.push('.gitignore')
+  }
+  if (/^\D*4\./.test(project.deps.express)) {
+    report.manual.push('Express 4 does not pass rejected promises to the error handler. Upgrade: express@5 @types/express@5.')
+  }
+  const entry = ['index.js', 'app.js', 'server.js', 'index.ts', 'app.ts', 'server.ts'].find((file) =>
+    fs.existsSync(path.join(cwd, file)),
+  )
+  if (entry) report.manual.push(`Move the routes in ${entry} into src/modules/; the app now starts from src/server.ts.`)
+  if (pkg.scripts?.start && pkg.scripts.start !== 'node dist/server.js') {
+    report.manual.push(`Your start script runs "${pkg.scripts.start}"; point it at node dist/server.js once you have moved over.`)
+  }
 }
 
 function install(bin, args, packages, cwd) {

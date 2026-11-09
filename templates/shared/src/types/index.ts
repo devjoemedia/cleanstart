@@ -1,7 +1,20 @@
-// Single source of truth for every shape in the app: data and content{{#web}}, plus SEO{{/web}}.
+// Single source of truth for every shape in the app: data{{#client}} and content{{/client}}{{#web}}, plus SEO{{/web}}{{#server}}, plus the API's error body{{/server}}.
+{{#client}}
 
 // Content names icons by key; components/common/icon.tsx maps each key to a glyph.
 export type IconName = 'arrow-right' | 'alert'
+{{/client}}
+{{#server}}
+
+// Every error response has this body, whatever went wrong.
+export interface ApiError {
+  error: {
+    status: number
+    message: string
+    details?: Array<string>
+  }
+}
+{{/server}}
 {{#web}}
 
 export interface PageSeo {
@@ -18,6 +31,7 @@ export interface SeoInput {
 }
 {{/web}}
 {{#example}}
+{{#client}}
 
 export interface MenuContent {
 {{#web}}
@@ -31,6 +45,7 @@ export interface MenuContent {
   retry: string
   unavailable: string
 }
+{{/client}}
 
 export interface MenuItem {
   id: string

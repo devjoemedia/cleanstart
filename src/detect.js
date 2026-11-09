@@ -1,22 +1,26 @@
 import fs from 'node:fs'
 import path from 'node:path'
 
-// Every supported framework: the dependency that identifies it and whether it renders to the web or native.
+// Every supported framework: the dependency that identifies it and whether it renders to the web, native or is an API.
 export const FRAMEWORKS = {
   next: { label: 'Next.js', dep: 'next', platform: 'web' },
   tanstack: { label: 'TanStack Start', dep: '@tanstack/react-start', platform: 'web' },
   expo: { label: 'Expo (React Native)', dep: 'expo', platform: 'native' },
+  nest: { label: 'NestJS', dep: '@nestjs/core', platform: 'server' },
+  express: { label: 'Express', dep: 'express', platform: 'server' },
 }
 
 // Reads the target project and works out its framework (null if unknown) and package manager.
 export function readProject(cwd) {
   const pkgPath = path.join(cwd, 'package.json')
   if (!fs.existsSync(pkgPath)) {
-    throw new Error(`No package.json in ${cwd}. Run cleanstart inside a Next.js, TanStack Start or Expo project.`)
+    throw new Error(`No package.json in ${cwd}. Run cleanstart inside a Next.js, TanStack Start, Expo, NestJS or Express project.`)
   }
   const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'))
   const deps = { ...pkg.dependencies, ...pkg.devDependencies }
-  const detected = Object.keys(FRAMEWORKS).filter((key) => deps[FRAMEWORKS[key].dep])
+  let detected = Object.keys(FRAMEWORKS).filter((key) => deps[FRAMEWORKS[key].dep])
+  // NestJS runs on Express, so a Nest project that lists express directly is still Nest.
+  if (detected.includes('nest')) detected = detected.filter((key) => key !== 'express')
   return { pkg, deps, detected, pm: detectPackageManager(cwd), name: pkg.name ?? path.basename(cwd) }
 }
 
@@ -24,7 +28,12 @@ export function readProject(cwd) {
 export function resolveLayout(cwd, framework, deps) {
   const has = (rel) => fs.existsSync(path.join(cwd, rel))
 
-  if (framework === 'tanstack') return { srcDir: 'src', appDir: null }
+  if (framework === 'tanstack' || framework === 'express') return { srcDir: 'src', appDir: null }
+
+  if (framework === 'nest') {
+    if (!has('src/main.ts')) throw new Error('Expected a NestJS entry file at src/main.ts.')
+    return { srcDir: 'src', appDir: null }
+  }
 
   if (framework === 'next') {
     const srcDir = has('src') ? 'src' : '.'

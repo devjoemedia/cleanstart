@@ -1,4 +1,4 @@
-import type { MenuItem } from '#/types'
+import type { MenuItem } from '#/types{{#esm}}/index.js{{/esm}}'
 
 // Mock records behind the data seam; hooks read these until the real API exists.
 const MENU: Array<MenuItem> = [

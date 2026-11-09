@@ -1,16 +1,14 @@
 import fs from 'node:fs'
 
-// Adds the import alias and the lint, format and typecheck scripts; returns true if anything changed.
+// Adds the import alias plus typecheck, format and check scripts (and dev, build, start on Express); true if changed.
 export function patchPackageJson(pkg, vars) {
   const before = JSON.stringify(pkg)
   // package.json imports only allow #-prefixed keys; @/ resolves through tsconfig paths alone.
   if (vars.importPrefix === '#/') pkg.imports = { ...pkg.imports, '#/*': vars.alias }
-  pkg.scripts = {
-    ...pkg.scripts,
-    typecheck: pkg.scripts?.typecheck ?? 'tsc --noEmit',
-    format: pkg.scripts?.format ?? vars.formatScript,
-    check: pkg.scripts?.check ?? 'prettier --check .',
-  }
+  // Scripts the project already has are kept as they are.
+  const defaults = { ...vars.scripts, typecheck: 'tsc --noEmit', format: vars.formatScript, check: 'prettier --check .' }
+  pkg.scripts = { ...pkg.scripts }
+  for (const [name, command] of Object.entries(defaults)) pkg.scripts[name] ??= command
   return JSON.stringify(pkg) !== before
 }
 
@@ -108,15 +106,69 @@ export function patchNativeLayout(file, importPrefix, dryRun) {
   return 'patched'
 }
 
-// Inserts the QueryProvider import after the last import, matching the file's quote and semicolon style.
 function addProviderImport(src, importPrefix) {
+  return addImport(src, 'QueryProvider', `${importPrefix}integrations/tanstack-query/query-provider`)
+}
+
+// Adds a named import, joining an existing import from the same module or going after the last import,
+// in the file's quote and semicolon style.
+function addImport(src, name, source) {
   const quote = /from "/.test(src) ? '"' : "'"
   const semi = /^import .*;\s*$/m.test(src) ? ';' : ''
-  const importLine = `import { QueryProvider } from ${quote}${importPrefix}integrations/tanstack-query/query-provider${quote}${semi}`
+  const sameSource = new RegExp(`^import \\{([^}]*)\\} from ['"]${source.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}['"]`, 'm')
+  const existing = sameSource.exec(src)
+  if (existing) {
+    const names = existing[1].split(',').map((n) => n.trim()).filter(Boolean)
+    if (names.includes(name)) return src
+    return src.replace(existing[0], existing[0].replace(`{${existing[1]}}`, `{ ${[...names, name].join(', ')} }`))
+  }
+  const importLine = `import { ${name} } from ${quote}${source}${quote}${semi}`
   const lines = src.split('\n')
   const lastImport = lines.findLastIndex((line) => /^import\s/.test(line) || /^\} from ['"]/.test(line))
   lines.splice(lastImport + 1, 0, importLine)
   return lines.join('\n')
+}
+
+// Registers the global validation pipe and error filter in a NestJS main.ts, just before app.listen().
+export function patchNestMain(file, filterSource, dryRun) {
+  const src = fs.readFileSync(file, 'utf8')
+  if (src.includes('AllExceptionsFilter')) return 'present'
+  const listen = /^([ \t]*)await app\.listen\(/m.exec(src)
+  if (!listen) return 'manual'
+
+  const semi = /^import .*;\s*$/m.test(src) ? ';' : ''
+  const indent = listen[1]
+  const setup =
+    `${indent}app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }))${semi}\n` +
+    `${indent}app.useGlobalFilters(new AllExceptionsFilter())${semi}\n`
+  let out = src.slice(0, listen.index) + setup + src.slice(listen.index)
+  out = addImport(out, 'ValidationPipe', '@nestjs/common')
+  out = addImport(out, 'AllExceptionsFilter', filterSource)
+  if (!dryRun) fs.writeFileSync(file, out)
+  return 'patched'
+}
+
+// Adds a feature module to the root module's imports array.
+export function patchNestModule(file, name, source, dryRun) {
+  const src = fs.readFileSync(file, 'utf8')
+  if (src.includes(name)) return 'present'
+  const list = /imports:\s*\[([^\]]*)\]/.exec(src)
+  // Nested brackets mean the regex stopped early; leave those for a person.
+  if (!list || list[1].includes('[')) return 'manual'
+
+  const items = list[1].trim().replace(/,$/, '')
+  const out = addImport(src.replace(list[0], `imports: [${items ? `${items}, ` : ''}${name}]`), name, source)
+  if (!dryRun) fs.writeFileSync(file, out)
+  return 'patched'
+}
+
+// Jest (NestJS 11 and earlier) can't read tsconfig paths, so the alias is mapped for it too.
+export function patchJestConfig(config, importPrefix, target) {
+  if (!config) return false
+  const key = `^${importPrefix}(.*?)(\\.js)?$`
+  if (config.moduleNameMapper?.[key]) return false
+  config.moduleNameMapper = { ...config.moduleNameMapper, [key]: target }
+  return true
 }
 
 // Sets the Expo app's display name; the slug is left alone because EAS ties builds to it.

@@ -44,7 +44,7 @@ const errors = {
 }
 
 // Collects the project details: flags win, then answers at the terminal, then defaults.
-export async function askProjectDetails({ flags, defaults, web, interactive, askExample }) {
+export async function askProjectDetails({ flags, defaults, web, server, interactive, askExample }) {
   const fallback = {
     name: defaults.name,
     description: '',
@@ -68,7 +68,8 @@ export async function askProjectDetails({ flags, defaults, web, interactive, ask
       { key: 'description', label: 'Short description', hint: 'optional' },
       web && { key: 'url', label: 'Site URL' },
       { key: 'author', label: 'Author' },
-      { key: 'color', label: 'Brand colour' },
+      // An API has no brand colour.
+      !server && { key: 'color', label: 'Brand colour' },
     ].filter(Boolean)
 
     const rl = readline.createInterface({ input: process.stdin, output: process.stdout })
