@@ -1,6 +1,6 @@
 {
   "name": "@devjoemedia/cleanstart",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "description": "Add a clean, CMS-ready structure to a Next.js, TanStack Start, Expo, NestJS or Express app: import alias, typed content and data seams, query hooks or feature modules, CLAUDE.md and more.",
   "type": "module",
   "bin": {
